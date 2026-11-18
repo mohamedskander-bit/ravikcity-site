@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Ravik — Registre</title>
+<style>
+  :root {
+    --pink: #ff2fd6; --cyan: #22e6ff; --green: #39ff9c; --night: #0b0618; --text: #f4ecff; --dim: #b9a8d9;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--night); color: var(--text);
+    font-family: "Liberation Sans", Arial, Helvetica, sans-serif; }
+  body {
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    background:
+      linear-gradient(rgba(166,107,255,.06) 1px, transparent 1px) 0 0 / 48px 48px,
+      linear-gradient(90deg, rgba(166,107,255,.06) 1px, transparent 1px) 0 0 / 48px 48px,
+      radial-gradient(ellipse at 50% 120%, rgba(255,47,214,.18), transparent 60%),
+      var(--night);
+  }
+  h1 { margin: 0; font-size: clamp(44px, 12vw, 96px); letter-spacing: .25em; padding-left: .25em; color: var(--pink);
+    text-shadow: 0 0 12px var(--pink), 0 0 32px rgba(255,47,214,.6); animation: flicker 6s infinite; }
+  .sub { margin: 6px 0 36px; letter-spacing: .35em; font-size: 13px; color: var(--cyan); text-shadow: 0 0 8px var(--cyan);
+    text-align: center; }
+  @keyframes flicker { 0%, 92%, 100% { opacity: 1; } 93% { opacity: .35; } 94% { opacity: 1; } 96% { opacity: .5; } }
+
+  /* Ordinateur des années 80, comme dans le jeu : boîtier beige, écran vert. */
+  .case { width: min(640px, 100%); padding: 22px; border-radius: 18px; background: #d6ccb0; border: 3px solid #a0967c;
+    box-shadow: 0 0 60px rgba(34,230,255,.12); }
+  .screen { padding: 22px; border-radius: 10px; background: #0c160e; border: 4px solid #5a5646; min-height: 220px;
+    font-family: "Courier New", Courier, monospace; color: var(--green); text-shadow: 0 0 6px rgba(57,255,156,.6); }
+  .screen p { margin: 0 0 12px; line-height: 1.45; }
+  .title { font-weight: bold; letter-spacing: .15em; }
+  form { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0 8px; }
+  input { flex: 1 1 200px; min-width: 0; padding: 12px; font: inherit; font-size: 22px; letter-spacing: .2em;
+    text-transform: uppercase; color: var(--green); background: #040a06; border: 2px solid var(--green); border-radius: 4px;
+    outline: none; }
+  input:focus { box-shadow: 0 0 12px rgba(57,255,156,.5); }
+  button { padding: 12px 20px; font: inherit; font-weight: bold; letter-spacing: .1em; color: #28220f; background: #e8e0c8;
+    border: 2px solid #78705a; border-radius: 6px; cursor: pointer; }
+  button:hover { background: #f5f0e1; }
+  button:disabled { opacity: .5; cursor: wait; }
+  .out { min-height: 3.2em; }
+  .code { display: inline-block; margin-top: 4px; font-size: clamp(26px, 7vw, 38px); letter-spacing: .2em; color: #eaffef;
+    text-shadow: 0 0 10px var(--green), 0 0 24px var(--green); user-select: all; }
+  .err { color: #ff6b6b; text-shadow: 0 0 6px rgba(255,80,80,.6); }
+  .cursor::after { content: "█"; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .lang { margin-top: 28px; font-size: 13px; color: var(--dim); }
+  .lang button { background: none; border: none; color: var(--dim); padding: 4px 8px; text-decoration: underline; }
+  .lang button[aria-pressed="true"] { color: var(--cyan); text-decoration: none; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <h1>RAVIK</h1>
+  <div class="sub" data-t="sub"></div>
+  <div class="case">
+    <div class="screen">
+      <p class="title" data-t="title"></p>
+      <p data-t="prompt"></p>
+      <form id="form" autocomplete="off">
+        <input id="code" name="code" maxlength="20" spellcheck="false" autocapitalize="characters" aria-label="Code">
+        <button id="go" type="submit" data-t="button"></button>
+      </form>
+      <div id="out" class="out"><span class="cursor"></span></div>
+    </div>
+  </div>
+  <div class="lang"><button type="button" data-lang="fr">Français</button> · <button type="button" data-lang="en">English</button></div>
+
+<script>
+// Codes B chiffrés : chacun ne se déchiffre qu'avec son code A (PBKDF2-SHA256 → AES-CBC).
+// Clé de recherche : SHA-256 de "ravikcity|" + code A normalisé. Généré par Tools/ravikcity-site/BuildSite.cs.
+const REGISTRY = {"a1f8117c44648bd3a70881e67f50a81298cfcdd49925a763632933d53dc36543":["StIHGpRFcO8LXa4MURkonA==","2fNOFhzwr/yua3c+c8/q+w=="],"f129511a68d73c2c1fb5ee518608d1b6c2766dd887d19cb49cbe2821b179cd06":["46J6vuYaugpxp0Wy/DkNvA==","sT+0CKDFs+OMsCKHyC3DTA=="],"6cf94d33b7aeab77de10e156fa35860e2e8f0021b10fb063bdc059fe2845ab78":["Ue7Rx+UUAym2vSe3ve+xKw==","nBW1MOcTHS444BH9MjEUPA=="],"0dd2e757e5b61209a1ea5942e582ecf2131faaaa56523f69cbcb930f3d5f7f23":["QOEHyNZhxxYFMAcqNv6QRQ==","lBC5O7qBXbLk2ZlxTZbKWA=="],"e3a1d00df0973eb560b2b5db6fbb92309c698d7066da815ef02a06af514ca17c":["BZv0Nt1EVx895bn0PvbDUw==","1zG7EAx1wDhYye1Sq8Q1zw=="],"ff43bb2e75b8b89c13db0c41e98950a6d3583d9dd0e0d458b0e590f27e687156":["/BRhm36uFPoaewbbYl3RHQ==","28HM+B+0/IvQUqT16M37WA=="],"d80fd7de08b403a0079d5b63e9e71977849ff3cfb2110aa197f5db3301f95d2e":["hmQJ/h1d8sn0snr6rvTXuQ==","9JvjADPAs3T1n86bGGcSzA=="],"e984bde81fda3db6916f24bf9f50e8172d607ad9f5861e6dae23b5d1cb8120c8":["9nmrZZAwsId7Zuz9y+ZIqA==","e0n8BJgkGB2YCb5FBvRk+Q=="],"8898ee3ca52004ebaaced368302ec3b08fc28a9f08a521595a78c53fa7a1d5e1":["z+z5RaZJrG5o61Yhulwjpg==","aQSvKCluYgx+KFWHmjub+Q=="],"f7ec53612ebb8b111924725d523d6e10f69151e12024cc162a13c834546492c0":["wiKTx+/l9FwWro/wOAoD1Q==","pXFw8Clt74smSxbjDsqbcg=="],"8ac26de732a7fe2de66a8e66cc64b8f36dc8601757314e71320455fec4d38c0f":["xZd/sBveqpe8irmFDwBqPw==","jF8xDuUslwKcvbf1OBZI/Q=="],"efd954681f80be752ab25304291b97b883f36338e56199de81aa4e8d21489443":["cbPdvfyjD8ErryRYgo570A==","cvVJ+ww7IFur7Oaff9hvAA=="],"c0221f8d0f545cc335e53b5ad78364f2d8b0cbd885c4f21075a051bf11f3bdd1":["pgVjEUY/+dKMgIANGQpVow==","ABkPczt4p1nJO7jNBZRu3w=="],"721bea3d4eb22173740da320b2ba1b02fef684db6264e0831ad4ebca99a5e889":["2xBmqdBqOvUb2qt9i3svnQ==","ZCxLYmcsK/uGuhWInTp8VA=="],"d7f74725293b5708466ef0131bcad8e25f07891910ac784e6a2cba1fdf492076":["3n3Rq2azMfhPXFhlrhGwtg==","fXjDsuE8W8ELAOQ0qgw0Yw=="],"2495ef00df0c46537bcbde404d6c4e4c3d22c2ea6645f3f9b70fce76fb0bed5e":["fqF1B9gmYBcVWNPuJXUdBw==","SfVQi8WISUq0vPJDjK+NpA=="],"9a6ee3d5ae3c14b40e6b0c5f036e108c9b01c02b4ceff4d9f93231d52184a99e":["r1QBBHPcdIr921z6Bb+HNg==","PHrAEorcs5xM5U56jyO0Ew=="],"9d191a308e1e342349603847e6c48227be6df75091071086be1ac41b915f355a":["Gu+YXJBJdSPqdflDB8XRXA==","ffJyk4K0JlixtKS795N2jQ=="],"0c4596fca81381d3bee89327381fac0a71d66f1a8c09fc3f259168be32bd7470":["zOiTEHa5UhokYam9wGOVWQ==","o9HEubdBnOhfXbkNuXQZ0Q=="],"d9c48429f08a6022eb60179c52ba3d5a7a6b7515ec8e94885de4d19f676838eb":["nU3aIcPP4M2y/CUf2mabQg==","iR3ckpTJFKsLijBPTiGFBA=="]};
+const KDF_SALT = "ravikcity-site|v1", KDF_ROUNDS = 100000;
+
+const TEXT = {
+  fr: { sub: "LA VILLE DERRIÈRE LA FRONTIÈRE", title: "REGISTRE DE RAVIK — ACCÈS PUBLIC",
+        prompt: "Entrez le code inscrit sur votre papier.", button: "CONSULTER", wait: "Consultation du registre…",
+        found: "Code de déverrouillage :", unknown: "CODE INCONNU. Le registre ne répond pas.",
+        empty: "Entrez un code.", nocrypto: "Ce navigateur ne peut pas lire le registre (ouvrez la page en https)." },
+  en: { sub: "THE CITY BEHIND THE FRONTIER", title: "RAVIK REGISTRY — PUBLIC ACCESS",
+        prompt: "Enter the code written on your paper.", button: "LOOK UP", wait: "Searching the registry…",
+        found: "Unlock code:", unknown: "UNKNOWN CODE. The registry does not answer.",
+        empty: "Enter a code.", nocrypto: "This browser cannot read the registry (open the page over https)." },
+};
+let lang = (navigator.language || "fr").toLowerCase().startsWith("fr") ? "fr" : "en";
+const $ = id => document.getElementById(id);
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-t]").forEach(el => el.textContent = TEXT[lang][el.dataset.t]);
+  document.querySelectorAll("[data-lang]").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang === lang));
+}
+document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => { lang = b.dataset.lang; applyLang(); }));
+
+// Même règle que dans le jeu : majuscules, sans espaces ni tirets.
+const normalize = s => (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+const enc = s => new TextEncoder().encode(s);
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+
+async function lookUp(codeA) {
+  const a = normalize(codeA);
+  const entry = REGISTRY[hex(await crypto.subtle.digest("SHA-256", enc("ravikcity|" + a)))];
+  if (!entry) return null;
+  const base = await crypto.subtle.importKey("raw", enc(a), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: enc(KDF_SALT), iterations: KDF_ROUNDS, hash: "SHA-256" },
+    base, { name: "AES-CBC", length: 256 }, false, ["decrypt"]);
+  const plain = await crypto.subtle.decrypt({ name: "AES-CBC", iv: b64(entry[0]) }, key, b64(entry[1]));
+  return new TextDecoder().decode(plain);
+}
+
+function show(html) { $("out").innerHTML = html; }
+
+async function submit(value) {
+  const t = TEXT[lang];
+  if (!normalize(value)) { show(`<p class="err">${t.empty}</p>`); return; }
+  if (!window.crypto || !crypto.subtle) { show(`<p class="err">${t.nocrypto}</p>`); return; }
+  $("go").disabled = true;
+  show(`<p class="cursor">${t.wait}</p>`);
+  let code = null;
+  try { code = await lookUp(value); } catch (e) { code = null; }
+  await new Promise(r => setTimeout(r, 700)); // le temps d'un vieil ordinateur
+  show(code ? `<p>${t.found}</p><span class="code" id="result">${code}</span>` : `<p class="err" id="result">${t.unknown}</p>`);
+  $("go").disabled = false;
+}
+
+$("form").addEventListener("submit", e => { e.preventDefault(); submit($("code").value); });
+applyLang();
+// Lien direct : ravikcity.com/?code=XX-0000
+const pre = new URLSearchParams(location.search).get("code");
+if (pre) { $("code").value = pre; submit(pre); } else { $("code").focus(); }
+</script>
+</body>
+</html>
